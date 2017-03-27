@@ -66,17 +66,77 @@ namespace GenerativeDoom
                     case "lock":
                     case "key":
                     case "room":
-                    case "imp":
-                    case "zombie":
-                    case "cacodemon":
                     case "enemy":
                     case "bonus":
+                    case "weapon":
                         finalMission.Enqueue(current);
                         Console.Write(current + ", ");
                         break;
                 }
             }
             Console.Write("\n");
+        }
+
+        /// <summary>
+        /// Consume a non terminal word, and build a serie of non-terminals or terminals,
+        /// using probabilities.
+        /// </summary>
+        /// <param name="word">The word consumed</param>
+        public void GetNonTermProb(string word)
+        {
+            double prob = _r.NextDouble();
+
+            switch (word)
+            {
+                case "Rooms":
+                    if(prob < 0.3)
+                    {
+                        Generation.Push("Enemy");
+                        Generation.Push("Rooms");
+                    }
+                    else
+                    {
+                        Generation.Push("Enemy");
+                    }
+                    /*if (prob < lockProb)
+                    {
+                        Generation.Push("lock");
+                        Generation.Push("Rooms");
+                        Generation.Push("key");
+                        lockProb = 0.0f;
+                    }
+                    else if (prob < enemyProb)
+                    {
+                        Generation.Push("Rooms");
+                        if (_r.NextDouble() < 0.2)
+                        {
+                            Generation.Push("weapon");
+                        }
+                        Generation.Push("enemy");
+                        enemyProb -= 0.05f;
+                    }
+                    else
+                    {
+                        Generation.Push("bonus");
+                    }*/
+                    break;
+                case "Enemy":
+                    if(prob < 0.4)
+                    {
+                        Generation.Push("enemy");
+                    }
+                    else if (prob < 0.8)
+                    {
+                        Generation.Push("bonus");
+                        Generation.Push("enemy");
+                    }
+                    else
+                    {
+                        Generation.Push("enemy");
+                        Generation.Push("weapon");
+                    }
+                    break;
+            }
         }
 
         /// <summary>
@@ -108,9 +168,10 @@ namespace GenerativeDoom
                     case "enemy":
                     case "bonus":
                     case "boss":
+                    case "weapon":
                         //Search for an empty vertex
-                        Direction nextDir = graph.GetRandomVertexNeighbour(currentVertex.index); ;
-                        Vertex nextVer = graph.GetVertexNeighbour(currentVertex.index, nextDir); ;
+                        Direction nextDir = graph.GetRandomVertexNeighbour(currentVertex.index);
+                        Vertex nextVer = graph.GetVertexNeighbour(currentVertex.index, nextDir);
                         while (graph.GetVertex(nextVer.index).data.type != "empty")
                         {
                             nextDir = graph.GetRandomVertexNeighbour(currentVertex.index);
@@ -149,6 +210,9 @@ namespace GenerativeDoom
             int ceil = 128;
             int floor = 0;
 
+            int widthVariation;
+            int heightVariation;
+
             for (int i = 0; i < g.GetNumVertices; ++i)
             {
                 if(g.GetVertex(i).data.type == "entry")
@@ -164,33 +228,32 @@ namespace GenerativeDoom
             {
                 //for(int i = 0; i < current.NumberOfNeighbours; ++i)
                 //{
-                    Vertex next = new Vertex(-1);
+                Vertex next = new Vertex(-1);
+                widthVariation = (int)new RandomNormal().Generate(0, 50);
+                heightVariation = (int)new RandomNormal().Generate(0, 50);
 
-                    switch (current.GetNeighbour(0))
+                switch (current.GetNeighbour(0))
                     {
                         case Direction.Up:
-                            currentPos.y += height * 2;
+                            currentPos.y += heightVariation + height * 2;
                             next = current.GetNeighbour(Direction.Up);
-                            //current.RemoveNeighbour(Direction.Up);
                             break;
                         case Direction.Right:
-                            currentPos.x += width * 2;
+                            currentPos.x += widthVariation + width * 2;
                             next = current.GetNeighbour(Direction.Right);
-                            //current.RemoveNeighbour(Direction.Right);
                             break;
                         case Direction.Down:
-                            currentPos.y -= height * 2;
+                            currentPos.y -= heightVariation + height * 2;
                             next = current.GetNeighbour(Direction.Down);
-                            //current.RemoveNeighbour(Direction.Down);
                             break;
                         case Direction.Left:
-                            currentPos.x -= width * 2;
+                            currentPos.x -= widthVariation + width * 2;
                             next = current.GetNeighbour(Direction.Left);
-                            //current.RemoveNeighbour(Direction.Left);
                             break;
                     }
+
                     current = next;
-                    current.SetData(currentPos, width, height, ceil, floor);
+                    current.SetData(currentPos, width + widthVariation, height + heightVariation, ceil, floor);
                // }
                 final.AddVertice(current);
             }
@@ -198,53 +261,6 @@ namespace GenerativeDoom
             //final.AddVertice(current);
 
             return final;
-        }
-
-        /// <summary>
-        /// Consume a non terminal word, and build a serie of non-terminals or terminals,
-        /// using probabilities.
-        /// </summary>
-        /// <param name="word">The word consumed</param>
-        public void GetNonTermProb(string word)
-        {
-            double prob = _r.NextDouble();
-
-            switch (word)
-            {
-                case "Rooms":
-                    if (prob < lockProb)
-                    {
-                        Generation.Push("lock");
-                        Generation.Push("Rooms");
-                        Generation.Push("key");
-                        lockProb = 0.0f;
-                    }
-                    else if (prob < enemyProb)
-                    {
-                        Generation.Push("Rooms");
-                        Generation.Push("enemy");
-                        enemyProb -= 0.05f;
-                    }
-                    else
-                    {
-                        Generation.Push("bonus");
-                    }
-                    break;
-                case "Enemy":
-                    if(prob < 0.3)
-                    {
-                        Generation.Push("imp");
-                    }
-                    else if(prob < 0.7)
-                    {
-                        Generation.Push("zombie");
-                    }
-                    else
-                    {
-                        Generation.Push("cacodemon");
-                    }
-                    break;
-            }
         }
     }
 }

@@ -22,6 +22,11 @@ namespace GenerativeDoom
         Graph graph;
         Grammar gram;
 
+        public int[] easyEnemies = { 3004, 9, 3001, 3006,  84 };
+        public int[] mediumEnemies = { 3002, 58, 3005, 65 };
+        public int[] hardEnemies = { 3003, 69, 71, 64, 66 };
+        public int[] bosses = { 16, 7, 68 };
+
         public GDForm()
         {
             InitializeComponent();
@@ -144,7 +149,11 @@ namespace GenerativeDoom
             points.Clear();
         }
 
-        private Thing addThing(Vector2D pos, String category, float proba = 0.5f)
+        private void addLinedef(Vertex begin, Vertex end)
+        {
+        }
+
+        private Thing addThing(Vector2D pos, String category, float proba = 0.5f, int index = 0)
         {
             Thing t = addThing(pos);
             if (t != null)
@@ -154,15 +163,22 @@ namespace GenerativeDoom
                 Random r = new Random();
 
                 bool found = false;
-                foreach (ThingTypeInfo ti in General.Map.Data.ThingTypes)
+                if (index != 0)
                 {
-                    if (ti.Category.Name == category)
+                    t.Type = index;
+                    found = true;
+                }
+                else
+                {
+                    foreach (ThingTypeInfo ti in General.Map.Data.ThingTypes)
                     {
-                        t.Type = ti.Index;
-                        Console.WriteLine("Add thing cat " + category + " for thing at pos " + pos);
-                        found = true;
-                        if (r.NextDouble() > proba)                     
-                            break;
+                        if (ti.Category.Name == category)
+                        {
+                            t.Type = ti.Index;
+                            found = true;
+                            if (r.NextDouble() > proba)
+                                break;
+                        }
                     }
 
                 }
@@ -171,7 +187,8 @@ namespace GenerativeDoom
                     Console.WriteLine("###### Could not find category " + category + " for thing at pos " + pos);
                 }else
                     t.Rotate(0);
-            }else
+            }
+            else
             {
                 Console.WriteLine("###### Could not add thing for cat " + category + " at pos " + pos);
             }
@@ -320,37 +337,30 @@ namespace GenerativeDoom
             
         }
 
-        private void makeOnePath( bool playerStart)
+        private void makeOnePath(bool playerStart, int difficulty)
         {
-            //graph = new Graph<string>(36);
             gram = new Grammar();
             graph = gram.Build();
 
+            Linedef line = new Linedef(;
+            
             Random r = new Random();
 
             DrawnVertex v = new DrawnVertex();
-            float pwidth = 128.0f;
-            float pheight = 128.0f;
 
             float width = 512.0f;
             float height = 512.0f;
 
-            int lumi = 200;
             int ceil = (int)(r.NextDouble() * 128 + 128);
             int floor = (int)(r.NextDouble() * 128 + 128);
             int pfloor = floor;
             int pceil = ceil;
             Vector2D pv = new Vector2D();
 
-            int lumiStep = 5;
-            int floorStep = 16;
             floor = 0;
             ceil = 256;
             v.pos.y = 0;
 
-            int xpos = 0;
-            int ypos = 0;
-            Console.WriteLine(graph.size);
             for (int i = 0; i < graph.size; i++)
             {
                 Console.WriteLine("---------------------- Sector " + i);
@@ -376,9 +386,28 @@ namespace GenerativeDoom
                 }
                 else if (ver.data.type == "enemy")
                 {
-                    while (r.NextDouble() > 0.3f)
+                    RandomNormal rz = new RandomNormal();
+                    int bla = (int)rz.Generate(4, 2);
+
+                    int enemyIndex = 0;
+                    switch (difficulty)
+                    {
+                        case 0: enemyIndex = easyEnemies[new Random().Next(0, easyEnemies.Length - 1)];
+                            break;
+                        case 1:
+                            enemyIndex = mediumEnemies[new Random().Next(0, mediumEnemies.Length - 1)];
+                            break;
+                        case 2:
+                            enemyIndex = hardEnemies[new Random().Next(0, hardEnemies.Length - 1)];
+                            break;
+                    }
+
+
+                    for (int j = 0; j <= bla; ++j)
+                    {
                         addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
-                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters");
+                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters", 0.5f, enemyIndex);
+                    }
                 }
                 else if (ver.data.type == "bonus")
                 {
@@ -393,13 +422,16 @@ namespace GenerativeDoom
                         addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
                             v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "health");
                     } while (r.NextDouble() > 0.5f);
+                }
+                else if(ver.data.type == "weapon")
+                {
                     addThing(new Vector2D(v.pos.x + width / 2, v.pos.y + height / 2), "weapons", 0.3f);
                 }
                 else if (ver.data.type == "boss")
                 {
-                    while (r.NextDouble() > 0.3f)
-                        addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
-                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters");
+                    int enemyIndex = bosses[new Random().Next(0, bosses.Length - 1)];
+                    addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
+                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters", 0.5f, enemyIndex);
                 }
                 #endregion
 
@@ -407,10 +439,11 @@ namespace GenerativeDoom
                 float cwidth = 0;
                 float cheight = 0;
 
+                float dheight = 0;
+                float dwidth = 0;
+                DrawnVertex d = new DrawnVertex();
 
-                //for(int j = ver.NumberOfNeighbours - 1; j > 0; --j)
-                //{
-               
+                //Building of the corridors
                 if(ver.data.type != "boss")
                 {
                     Direction nextDir = ver.GetNeighbour(0);
@@ -418,35 +451,49 @@ namespace GenerativeDoom
                     switch (nextDir)
                     {
                         case Direction.Up:
-                            v.pos = new Vector2D(next.data.pos.x + (next.data.width / 4), next.data.pos.y - next.data.height);
-                            //v.pos = new Vector2D(v.pos.x + (ver.data.width / 4), v.pos.y);
+                            v.pos = new Vector2D(v.pos.x + (ver.data.height / 4), v.pos.y + ver.data.height);
+                            d.pos = v.pos;
                             cwidth = ver.data.width / 2;
-                            cheight = (next.data.pos.y) - v.pos.y;
-                            Console.WriteLine("!! UP !! x : " + v.pos.x + ", y : " + v.pos.y + ", w : " + cwidth + ", h : " + cheight);
-                        break;
+                            cheight = next.data.pos.y - v.pos.y;
+                            dwidth = cwidth;
+                            dheight = 20;
+                            break;
                         case Direction.Right:
                             v.pos = new Vector2D(v.pos.x + ver.data.width, v.pos.y + (ver.data.height / 4));
+                            d.pos = v.pos;
                             cwidth = next.data.pos.x - v.pos.x;
                             cheight = ver.data.height / 2;
+                            dwidth = 20;
+                            dheight = cheight;
                             break;
                         case Direction.Down:
-                            v.pos = new Vector2D(v.pos.x + (ver.data.width / 4), v.pos.y - ver.data.height);
+                            v.pos = new Vector2D(v.pos.x + (ver.data.width / 4), v.pos.y);
+                            d.pos = v.pos;
                             cwidth = ver.data.width / 2;
-                            cheight = v.pos.y - next.data.pos.y;
-                            Console.WriteLine("!! DOWN !! x : "+v.pos.x+", y : "+v.pos.y+", w : "+cwidth+", h : "+cheight);
+                            cheight = (next.data.pos.y + next.data.height) - v.pos.y;
+                            dwidth = cwidth;
+                            dheight = -20;
                             break;
                         case Direction.Left:
                             v.pos = new Vector2D(v.pos.x, v.pos.y + (ver.data.height / 4));
+                            d.pos = v.pos;
                             cwidth = (next.data.pos.x + next.data.width) - v.pos.x;
                             cheight = ver.data.height / 2;
+                            dwidth = -20;
+                            dheight = cheight;
                             break;
                     }
-                    //}
 
                     newSector(v, cwidth,
                         cheight,
                         200,
                         ver.data.ceil,
+                        ver.data.floor);
+
+                    newSector(d, dwidth,
+                        dheight,
+                        200,
+                        ver.data.floor,
                         ver.data.floor);
                 }
 
@@ -595,6 +642,27 @@ namespace GenerativeDoom
             
         }
 
+        //Easy mode
+        private void btnAnalysis_Click(object sender, EventArgs e)
+        {
+            //foreach (ThingTypeInfo ti in General.Map.Data.ThingTypes)
+            //Console.WriteLine(ti.Category.Name);
+            //showCategories();
+
+            makeOnePath(true, 0);
+
+            correctMissingTex();
+        }
+
+        //Medium Mode
+        private void btnGenerate_Click(object sender, EventArgs e)
+        {
+            makeOnePath(true, 1);
+
+            correctMissingTex();
+        }
+
+        //Hard mode
         private void btnDoMagic_Click(object sender, EventArgs e)
         {
             Console.WriteLine("Trying to do some magic !!");
@@ -607,24 +675,7 @@ namespace GenerativeDoom
 
             Console.WriteLine("Did I ? Magic ?");*/
 
-            Grammar gra = new Grammar();
-            gra.BuildMission();
-            while(gra.finalMission.Count > 0)
-            {
-                Console.WriteLine(gra.finalMission.Dequeue());
-            }
-        }
-
-        private void btnAnalysis_Click(object sender, EventArgs e)
-        {
-            //foreach (ThingTypeInfo ti in General.Map.Data.ThingTypes)
-            //Console.WriteLine(ti.Category.Name);
-            //showCategories();
-        }
-
-        private void btnGenerate_Click(object sender, EventArgs e)
-        {
-            makeOnePath(true);
+            makeOnePath(true, 2);
 
             correctMissingTex();
         }
