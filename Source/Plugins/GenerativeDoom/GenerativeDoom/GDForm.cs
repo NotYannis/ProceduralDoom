@@ -22,10 +22,25 @@ namespace GenerativeDoom
         Graph graph;
         Grammar gram;
 
-        public int[] easyEnemies = { 3004, 9, 3001, 3006,  84 };
-        public int[] mediumEnemies = { 3002, 58, 3005, 65 };
-        public int[] hardEnemies = { 3003, 69, 71, 64, 66 };
-        public int[] bosses = { 16, 7, 68 };
+        static Random rand = new Random();
+
+        int[] easyEnemies = { 3004, 9, 3001, 3006,  84 };
+        int[] mediumEnemies = { 3002, 58, 3005, 65 };
+        int[] hardEnemies = { 3003, 69, 71, 64, 66 };
+        int[] bosses = { 16, 7, 68 };
+
+
+        int[] weapons = { 2002, 2004, 2003, 2001, 82 };
+
+        //A dictionnary with a weapon's ID on key and its ammo on value
+        Dictionary<int, int> ammo = new Dictionary<int, int>()
+        {
+            {2002, 2007},
+            {2004, 2047},
+            {2003, 2010},
+            {2001, 2008},
+            {82, 2008}
+        };
 
         public GDForm()
         {
@@ -149,23 +164,18 @@ namespace GenerativeDoom
             points.Clear();
         }
 
-        private void addLinedef(Vertex begin, Vertex end)
-        {
-        }
-
         private Thing addThing(Vector2D pos, String category, float proba = 0.5f, int index = 0)
         {
             Thing t = addThing(pos);
             if (t != null)
             {
-
                 IList<ThingCategory> cats = General.Map.Data.ThingCategories;
-                Random r = new Random();
 
                 bool found = false;
                 if (index != 0)
                 {
                     t.Type = index;
+                    t.SetFlag("8", true);
                     found = true;
                 }
                 else
@@ -176,12 +186,12 @@ namespace GenerativeDoom
                         {
                             t.Type = ti.Index;
                             found = true;
-                            if (r.NextDouble() > proba)
+                            if (rand.NextDouble() > proba)
                                 break;
                         }
                     }
-
                 }
+
                 if (!found)
                 {
                     Console.WriteLine("###### Could not find category " + category + " for thing at pos " + pos);
@@ -324,7 +334,6 @@ namespace GenerativeDoom
             
         }
     
-
         private void showCategories()
         {
             lbCategories.Items.Clear();
@@ -339,77 +348,80 @@ namespace GenerativeDoom
 
         private void makeOnePath(bool playerStart, int difficulty)
         {
-            gram = new Grammar();
+            gram = new Grammar(difficulty);
             graph = gram.Build();
-
-            Linedef line = new Linedef(;
             
             Random r = new Random();
 
             DrawnVertex v = new DrawnVertex();
+            float width;
+            float height;
 
-            float width = 512.0f;
-            float height = 512.0f;
-
-            int ceil = (int)(r.NextDouble() * 128 + 128);
-            int floor = (int)(r.NextDouble() * 128 + 128);
-            int pfloor = floor;
-            int pceil = ceil;
-            Vector2D pv = new Vector2D();
-
-            floor = 0;
-            ceil = 256;
             v.pos.y = 0;
 
             for (int i = 0; i < graph.size; i++)
             {
                 Console.WriteLine("---------------------- Sector " + i);
 
-                pv = v.pos;
+                Vertex room = graph.GetVertex(i);
+                v.pos = room.data.pos;
 
-                Vertex ver = graph.GetVertex(i);
-                v.pos = ver.data.pos;
+                width = room.data.width;
+                height = room.data.height;
 
-                newSector(v, ver.data.width,
-                    ver.data.height,
+                newSector(v, room.data.width,
+                    room.data.height,
                     200,
-                    ver.data.ceil,
-                    ver.data.floor);
-
+                    room.data.ceil,
+                    room.data.floor);
 
                 #region
-                if (ver.data.type == "entry" && playerStart)
+                RandomNormal rz = new RandomNormal();
+
+                if (room.data.type == "entry" && playerStart)
                 {
                     Thing t = addThing(new Vector2D(v.pos.x + width / 2, v.pos.y + height / 2));
                     t.Type = TYPE_PLAYER_START;
                     t.Rotate(0);
                 }
-                else if (ver.data.type == "enemy")
+                else if (room.data.type == "enemy")
                 {
-                    RandomNormal rz = new RandomNormal();
-                    int bla = (int)rz.Generate(4, 2);
+                    int numberOfEnemy = (int)rz.Generate(3, 2);
 
-                    int enemyIndex = 0;
+                    //Each room of enemies is composed of 2 groups : an easy one a an other one dependant of the difficulty
+                    int enemyIndex = easyEnemies[rand.Next(0, easyEnemies.Length - 1)];
+                    int enemyIndex2 = 0;
+
                     switch (difficulty)
                     {
-                        case 0: enemyIndex = easyEnemies[new Random().Next(0, easyEnemies.Length - 1)];
+                        case 0:
+                            enemyIndex2 = easyEnemies[rand.Next(0, easyEnemies.Length - 1)];
                             break;
                         case 1:
-                            enemyIndex = mediumEnemies[new Random().Next(0, mediumEnemies.Length - 1)];
+                            enemyIndex2 = mediumEnemies[rand.Next(0, easyEnemies.Length - 1)];
                             break;
                         case 2:
-                            enemyIndex = hardEnemies[new Random().Next(0, hardEnemies.Length - 1)];
+                            enemyIndex2 = hardEnemies[rand.Next(0, easyEnemies.Length - 1)];
                             break;
                     }
 
-
-                    for (int j = 0; j <= bla; ++j)
+                    for (int j = 0; j <= numberOfEnemy; ++j)
                     {
                         addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
                             v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters", 0.5f, enemyIndex);
                     }
+
+                    if (enemyIndex2 != 0)
+                    {
+                        numberOfEnemy = (int)rz.Generate(2, 1);
+                        for (int j = 0; j <= numberOfEnemy; ++j)
+                        {
+                            addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
+                                v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters", 0.5f, enemyIndex2);
+                        }
+                    }
                 }
-                else if (ver.data.type == "bonus")
+                else if (room.data.type == "bonus")
                 {
                     do
                     {
@@ -423,11 +435,22 @@ namespace GenerativeDoom
                             v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "health");
                     } while (r.NextDouble() > 0.5f);
                 }
-                else if(ver.data.type == "weapon")
+                else if(room.data.type == "weapon")
                 {
-                    addThing(new Vector2D(v.pos.x + width / 2, v.pos.y + height / 2), "weapons", 0.3f);
+                    int weaponIndex = weapons[rand.Next(0, weapons.Length - 1)];
+                    int ammoIndex;
+
+                    addThing(new Vector2D(v.pos.x + width / 2, v.pos.y + height / 2), "weapons", 0.3f, weaponIndex);
+
+                    bool dede = ammo.TryGetValue(weaponIndex, out ammoIndex);
+
+                    for (int j = 0; j < 6; ++j)
+                    {
+                        addThing(new Vector2D(v.pos.x + width / 2 + (float)rz.Generate(0, 30),
+                                                v.pos.y + height / 2 + (float)rz.Generate(0, 30)), "weapons", 0.3f, ammoIndex);
+                    }
                 }
-                else if (ver.data.type == "boss")
+                else if (room.data.type == "boss")
                 {
                     int enemyIndex = bosses[new Random().Next(0, bosses.Length - 1)];
                     addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
@@ -443,42 +466,42 @@ namespace GenerativeDoom
                 float dwidth = 0;
                 DrawnVertex d = new DrawnVertex();
 
-                //Building of the corridors
-                if(ver.data.type != "boss")
+                //Building corridors
+                if(room.data.type != "boss")
                 {
-                    Direction nextDir = ver.GetNeighbour(0);
-                    Vertex next = ver.GetNeighbour(nextDir);
+                    Direction nextDir = room.GetNeighbour(0);
+                    Vertex next = room.GetNeighbour(nextDir);
                     switch (nextDir)
                     {
                         case Direction.Up:
-                            v.pos = new Vector2D(v.pos.x + (ver.data.height / 4), v.pos.y + ver.data.height);
+                            v.pos = new Vector2D(v.pos.x + (room.data.height / 4), v.pos.y + room.data.height);
                             d.pos = v.pos;
-                            cwidth = ver.data.width / 2;
+                            cwidth = room.data.width / 2;
                             cheight = next.data.pos.y - v.pos.y;
                             dwidth = cwidth;
                             dheight = 20;
                             break;
                         case Direction.Right:
-                            v.pos = new Vector2D(v.pos.x + ver.data.width, v.pos.y + (ver.data.height / 4));
+                            v.pos = new Vector2D(v.pos.x + room.data.width, v.pos.y + (room.data.height / 4));
                             d.pos = v.pos;
                             cwidth = next.data.pos.x - v.pos.x;
-                            cheight = ver.data.height / 2;
+                            cheight = room.data.height / 2;
                             dwidth = 20;
                             dheight = cheight;
                             break;
                         case Direction.Down:
-                            v.pos = new Vector2D(v.pos.x + (ver.data.width / 4), v.pos.y);
+                            v.pos = new Vector2D(v.pos.x + (room.data.width / 4), v.pos.y);
                             d.pos = v.pos;
-                            cwidth = ver.data.width / 2;
+                            cwidth = room.data.width / 2;
                             cheight = (next.data.pos.y + next.data.height) - v.pos.y;
                             dwidth = cwidth;
                             dheight = -20;
                             break;
                         case Direction.Left:
-                            v.pos = new Vector2D(v.pos.x, v.pos.y + (ver.data.height / 4));
+                            v.pos = new Vector2D(v.pos.x, v.pos.y + (room.data.height / 4));
                             d.pos = v.pos;
                             cwidth = (next.data.pos.x + next.data.width) - v.pos.x;
-                            cheight = ver.data.height / 2;
+                            cheight = room.data.height / 2;
                             dwidth = -20;
                             dheight = cheight;
                             break;
@@ -487,153 +510,15 @@ namespace GenerativeDoom
                     newSector(v, cwidth,
                         cheight,
                         200,
-                        ver.data.ceil,
-                        ver.data.floor);
+                        room.data.ceil,
+                        room.data.floor);
 
                     newSector(d, dwidth,
                         dheight,
                         200,
-                        ver.data.floor,
-                        ver.data.floor);
+                        room.data.floor,
+                        room.data.floor);
                 }
-
-              
-                //Taille du prochain secteur
-                //float width = (float)(r.Next() % 10) * 64.0f + 128.0f;
-                //float height = (float)(r.Next() % 10) * 64.0f + 128.0f;
-
-                //On checke ou on peut le poser
-                Line2D l1 = new Line2D();
-                bool[] dirOk = new bool[4];
-                /*
-                //A droite
-                l1.v2 = l1.v1 = pv;
-                l1.v1.x += pwidth;
-                l1.v2.x += width + 2048;
-                bool droite = !checkIntersect(l1);
-                l1.v1.y = l1.v2.y = l1.v1.y + height;
-                droite = droite && !checkIntersect(l1);
-                dirOk[0] = droite;
-                Console.WriteLine("Droite ok:" + droite);
-
-
-                //A gauche
-                l1.v2 = l1.v1 = pv;
-                l1.v2.x -= width + 2048;
-                bool gauche = !checkIntersect(l1);
-                l1.v1.y = l1.v2.y = l1.v1.y + height;
-                gauche = gauche && !checkIntersect(l1);
-                dirOk[1] = gauche;
-                Console.WriteLine("Gauche ok:" + gauche);
-
-                //En haut
-                l1.v2 = l1.v1 = pv;
-                l1.v1.y = l1.v2.y = l1.v1.y + pheight;
-                l1.v2.y += height + 2048;
-                bool haut = !checkIntersect(l1);
-                l1.v1.x = l1.v2.x = l1.v1.x + width;
-                haut = haut && !checkIntersect(l1);
-                dirOk[2] = haut;
-                Console.WriteLine("Haut ok:" + haut);
-
-                //En bas
-                l1.v2 = l1.v1 = pv;
-                l1.v2.y -= height + 2048;
-                bool bas = !checkIntersect(l1);
-                l1.v1.x = l1.v2.x = l1.v1.x + width;
-                bas = bas && !checkIntersect(l1);
-                dirOk[3] = bas;
-                Console.WriteLine("Bas ok:" + bas);
-
-                bool oneDirOk = haut || bas || gauche || droite;
-
-                int nextDir = pdir;
-                if (!oneDirOk)
-                    Console.WriteLine("No dir available, on va croiser !!!");
-                else
-                {
-                    int nbTry = 0;
-                    while ((!dirOk[nextDir] || pdir == nextDir) && nbTry++ < 100)
-                        nextDir = r.Next() % 4;
-                }
-
-
-                
-                switch (nextDir)
-                {
-                    case 0: //droite
-                        Console.WriteLine("On va a droite !");
-                        v.pos.x += pwidth;
-                        break;
-                    case 1: //gauche
-                        Console.WriteLine("On va a gauche !");
-                        v.pos.x -= width;
-                        break;
-                    case 2: //haut
-                        Console.WriteLine("On va en haut !");
-                        v.pos.y += pheight;
-                        break;
-                    case 3: //bas
-                        Console.WriteLine("On va en bas !");
-                        v.pos.y -= height;
-                        break;
-
-                }
-
-
-
-
-
-                /*if (r.NextDouble() > 0.5)
-                    v.pos.x += pwidth; //(r.NextDouble() > 0.5 ? width : -nwidth);
-                else
-                    v.pos.y += pheight; //(r.NextDouble() > 0.5 ? height : -nheight);*/
-
-                /*
-                else if (i == 1)
-                {
-                    addThing(new Vector2D(v.pos.x + width / 2, v.pos.y + height / 2), "weapons");
-                }
-                else if (i % 3 == 0)
-                {
-                    while (r.NextDouble() > 0.3f)
-                        addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
-                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "monsters");
-                }
-                if (i % 5 == 0)
-                {
-                    do
-                    {
-
-                        addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
-                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "ammunition");
-                    } while (r.NextDouble() > 0.3f);
-                }
-                if (i % 20 == 0)
-                {
-                    do
-                    {
-                        addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
-                            v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "health");
-                    } while (r.NextDouble() > 0.5f);
-                    addThing(new Vector2D(v.pos.x + width / 2, v.pos.y + height / 2), "weapons", 0.3f);
-                }
-
-                while (r.NextDouble() > 0.5f)
-                    addThing(new Vector2D(v.pos.x + width / 2 + ((float)r.NextDouble() * (width / 2)) - width / 4,
-                        v.pos.y + height / 2 + ((float)r.NextDouble() * (height / 2)) - height / 4), "decoration", (float)r.NextDouble());
-
-
-                pwidth = width;
-                pheight = height;
-                pceil = ceil;
-                pfloor = floor;
-                pdir = nextDir;
-
-                // Handle thread interruption
-                try { Thread.Sleep(0); }
-                catch (ThreadInterruptedException) { Console.WriteLine(">>>> thread de generation interrompu at sector " + i); break; }
-                */
             }
             
            
@@ -645,10 +530,6 @@ namespace GenerativeDoom
         //Easy mode
         private void btnAnalysis_Click(object sender, EventArgs e)
         {
-            //foreach (ThingTypeInfo ti in General.Map.Data.ThingTypes)
-            //Console.WriteLine(ti.Category.Name);
-            //showCategories();
-
             makeOnePath(true, 0);
 
             correctMissingTex();
@@ -665,16 +546,6 @@ namespace GenerativeDoom
         //Hard mode
         private void btnDoMagic_Click(object sender, EventArgs e)
         {
-            Console.WriteLine("Trying to do some magic !!");
-            /*
-            makeOnePath(true);
-            makeOnePath(false);
-            makeOnePath(false);
-
-            correctMissingTex();
-
-            Console.WriteLine("Did I ? Magic ?");*/
-
             makeOnePath(true, 2);
 
             correctMissingTex();

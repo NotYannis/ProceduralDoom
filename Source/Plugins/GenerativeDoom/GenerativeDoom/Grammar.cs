@@ -18,21 +18,30 @@ namespace GenerativeDoom
         static Random _r = new Random();
         static Random _r2 = new Random();
 
-        float lockProb = 0.3f;
         float enemyProb = 0.7f;
 
-        public Grammar()
+
+        public Grammar(int difficulty)
         {
             Generation = new Stack<string>();
             rnd = new RandomNormal();
             finalMission = new Queue<string>();
+            switch (difficulty)
+            {
+                case 0: enemyProb = 0.4f;
+                    break;
+                case 1: enemyProb = 0.6f;
+                    break;
+                case 2: enemyProb = 0.8f;
+                    break;
+            }
         }
 
         public Graph Build()
         {
-            Graph graph = new Graph(25);
+            Graph graph = new Graph(36);
             BuildMission();
-            graph = BuildGraph(25);
+            graph = BuildGraph(36);
             return BuildSpace(graph);
         }
 
@@ -52,6 +61,7 @@ namespace GenerativeDoom
                 {
                     case "Dungeon":
                         Generation.Push("boss");
+                        Generation.Push("weapon");
                         Generation.Push("Rooms");
                         Generation.Push("Rooms");
                         Generation.Push("Rooms");
@@ -89,51 +99,33 @@ namespace GenerativeDoom
             switch (word)
             {
                 case "Rooms":
-                    if(prob < 0.3)
-                    {
-                        Generation.Push("Enemy");
-                        Generation.Push("Rooms");
-                    }
-                    else
-                    {
-                        Generation.Push("Enemy");
-                    }
-                    /*if (prob < lockProb)
-                    {
-                        Generation.Push("lock");
-                        Generation.Push("Rooms");
-                        Generation.Push("key");
-                        lockProb = 0.0f;
-                    }
-                    else if (prob < enemyProb)
-                    {
-                        Generation.Push("Rooms");
-                        if (_r.NextDouble() < 0.2)
-                        {
-                            Generation.Push("weapon");
-                        }
-                        Generation.Push("enemy");
-                        enemyProb -= 0.05f;
-                    }
-                    else
-                    {
-                        Generation.Push("bonus");
-                    }*/
-                    break;
-                case "Enemy":
                     if(prob < 0.4)
                     {
-                        Generation.Push("enemy");
+                        Generation.Push("Enemy");
+                        Generation.Push("Rooms");
                     }
-                    else if (prob < 0.8)
+                    else
                     {
-                        Generation.Push("bonus");
+                        Generation.Push("Enemy");
+                    }
+                    break;
+                case "Enemy":
+                    if(prob < enemyProb)
+                    {
                         Generation.Push("enemy");
                     }
                     else
                     {
-                        Generation.Push("enemy");
-                        Generation.Push("weapon");
+                        prob = _r.NextDouble();
+                        if(prob < 0.3){
+                            Generation.Push("bonus");
+                            Generation.Push("enemy");
+                        }
+                        else
+                        {
+                            Generation.Push("enemy");
+                            Generation.Push("weapon");
+                        }
                     }
                     break;
             }
